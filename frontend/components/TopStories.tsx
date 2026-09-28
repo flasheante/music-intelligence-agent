@@ -86,7 +86,7 @@ function TopStoriesBody({ state, region, onRetry }: TopStoriesBodyProps) {
     return (
       <div role="alert" className="flex flex-col gap-3 rounded-xl border border-neutral-200 p-6">
         <p className="text-sm text-neutral-800">
-          No pudimos cargar el ranking. Revisá que el backend esté corriendo.
+          No pudimos cargar el ranking. Probá de nuevo en unos minutos.
         </p>
         <button
           type="button"

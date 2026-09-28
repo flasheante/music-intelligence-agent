@@ -34,8 +34,8 @@ export function ApiStatus() {
         aria-hidden
         className={`h-2 w-2 rounded-full ${state === "up" ? "bg-brand-red" : "bg-neutral-300"}`}
       />
-      <span className="text-neutral-700">API y Redis</span>
-      <span className="font-medium">{state === "up" ? "ok" : "sin conexión"}</span>
+      <span className="text-neutral-700">Datos</span>
+      <span className="font-medium">{state === "up" ? "conectados" : "sin conexión"}</span>
     </p>
   );
 }

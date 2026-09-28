@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { readSnapshot } from "@/lib/server/redis";
+import { readSnapshot, reportRedisFailure } from "@/lib/server/redis";
 
 export const dynamic = "force-dynamic";
 
@@ -7,7 +7,10 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   try {
     return NextResponse.json(await readSnapshot());
-  } catch {
-    return NextResponse.json({ message: "Ranking unavailable" }, { status: 503 });
+  } catch (error) {
+    return NextResponse.json(
+      { message: "Ranking unavailable", reason: reportRedisFailure("api/trends", error) },
+      { status: 503 },
+    );
   }
 }

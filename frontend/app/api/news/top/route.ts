@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { filterStories, GENRES, parseFilter, REGIONS } from "@/lib/ranking";
-import { readSnapshot } from "@/lib/server/redis";
+import { readSnapshot, reportRedisFailure } from "@/lib/server/redis";
 
 const TOP_NEWS_LIMIT = Number(process.env.TOP_NEWS_LIMIT ?? 10);
 
@@ -20,7 +20,10 @@ export async function GET(request: NextRequest) {
       generatedAt: snapshot.generatedAt,
       stories: filterStories(snapshot.stories, { region, genre }, TOP_NEWS_LIMIT),
     });
-  } catch {
-    return NextResponse.json({ message: "Ranking unavailable" }, { status: 503 });
+  } catch (error) {
+    return NextResponse.json(
+      { message: "Ranking unavailable", reason: reportRedisFailure("api/news/top", error) },
+      { status: 503 },
+    );
   }
 }
