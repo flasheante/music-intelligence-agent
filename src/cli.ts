@@ -6,6 +6,7 @@ import { AppConfig } from './config/configuration';
 import { TopStory } from './common/interfaces/top-story.interface';
 import { PipelineService } from './pipeline/pipeline.service';
 import { REDIS_CLIENT } from './redis/redis.constants';
+import { diagnoseRedisUrl } from './redis/redis-probe';
 import { TrendStoreService } from './redis/trend-store.service';
 
 const TREND_FLAMES: Record<TopStory['trendLevel'], string> = {
@@ -65,12 +66,11 @@ async function checkRedis(redis: Redis, url: string): Promise<void> {
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
     throw new Error(
-      `Cannot reach Redis at ${describeRedisUrl(url)} (${reason}). ` +
-        'For Upstash, REDIS_URL must be the TLS URL: ' +
-        'rediss://default:<password>@<endpoint>.upstash.io:6379. ' +
-        'Upstash drops connections with a wrong password without an error, ' +
-        'so a timeout usually means the password is wrong (it is not the ' +
-        'REST token).',
+      `Cannot reach Redis at ${describeRedisUrl(url)} (${reason}).\n` +
+        `Diagnosis: ${await diagnoseRedisUrl(url)}\n` +
+        'For Upstash, REDIS_URL must be the ioredis URL from the Connect ' +
+        'panel: rediss://default:<password>@<endpoint>.upstash.io:6379 ' +
+        '(the password is not the REST token).',
     );
   } finally {
     clearTimeout(timer);
