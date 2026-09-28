@@ -67,7 +67,10 @@ async function checkRedis(redis: Redis, url: string): Promise<void> {
     throw new Error(
       `Cannot reach Redis at ${describeRedisUrl(url)} (${reason}). ` +
         'For Upstash, REDIS_URL must be the TLS URL: ' +
-        'rediss://default:<password>@<endpoint>.upstash.io:6379',
+        'rediss://default:<password>@<endpoint>.upstash.io:6379. ' +
+        'Upstash drops connections with a wrong password without an error, ' +
+        'so a timeout usually means the password is wrong (it is not the ' +
+        'REST token).',
     );
   } finally {
     clearTimeout(timer);
