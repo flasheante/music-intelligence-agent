@@ -1,0 +1,21 @@
+@import "tailwindcss";
+
+/*
+ * Application brand palette: white, red and black - shared with the
+ * custom-tshirt frontend so both projects read as one family.
+ */
+@theme {
+  --color-brand-white: #ffffff;
+  --color-brand-red: #e30613;
+  --color-brand-black: #000000;
+
+  --color-background: var(--color-brand-white);
+  --color-foreground: var(--color-brand-black);
+
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+}
+
+body {
+  background: var(--color-background);
+  color: var(--color-foreground);
+}

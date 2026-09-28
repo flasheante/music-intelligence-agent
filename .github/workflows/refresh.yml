@@ -1,0 +1,39 @@
+# Runs the news pipeline and writes the ranking to Redis (Upstash) - the
+# only writer in production. Capped at 3 scheduled runs a day on purpose.
+name: Refresh Top 10
+
+on:
+  schedule:
+    # 09:00, 15:00 and 21:00 Argentina time (UTC-3).
+    - cron: '0 0,12,18 * * *'
+  # Manual run from the Actions tab (counts on top of the 3 scheduled ones).
+  workflow_dispatch:
+
+concurrency:
+  group: refresh
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - name: Run pipeline
+        run: npm run refresh
+        env:
+          REDIS_URL: ${{ secrets.REDIS_URL }}
+          # Outlive the 6-9 h gap between runs even if one run fails.
+          TREND_TTL_HOURS: '48'
+          NEWS_MAX_AGE_HOURS: '48'

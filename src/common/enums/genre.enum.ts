@@ -1,0 +1,14 @@
+export enum Genre {
+  ROCK = 'ROCK',
+  ALTERNATIVE = 'ALTERNATIVE',
+  INDIE = 'INDIE',
+  METAL = 'METAL',
+  PUNK = 'PUNK',
+  POP = 'POP',
+  HIP_HOP = 'HIP_HOP',
+  ELECTRONIC = 'ELECTRONIC',
+  PROG = 'PROG',
+  POST_PUNK = 'POST_PUNK',
+  LATIN = 'LATIN',
+  OTHER = 'OTHER',
+}
