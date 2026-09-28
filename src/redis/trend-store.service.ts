@@ -24,6 +24,37 @@ export interface TrendSample {
   mentions: number;
 }
 
+function parseSamples(raw: string[]): TrendSample[] {
+  return raw.map((entry) => {
+    const [timestamp, mentions] = entry.split(':');
+    return { timestamp: Number(timestamp), mentions: Number(mentions) };
+  });
+}
+
+function velocityOf(samples: TrendSample[]): number {
+  if (samples.length < 2) return 0;
+
+  const first = samples[0];
+  const last = samples[samples.length - 1];
+  if (first.mentions <= 0) return 0;
+
+  return (last.mentions - first.mentions) / first.mentions;
+}
+
+type PipelineResults = Awaited<
+  ReturnType<ReturnType<Redis['pipeline']>['exec']>
+>;
+
+/** ioredis pipelines report per-command errors in-band; surface the first. */
+function throwOnPipelineError(
+  results: PipelineResults,
+): [Error | null, unknown][] {
+  if (!results) throw new Error('Redis pipeline was aborted');
+  const failed = results.find(([error]) => error);
+  if (failed?.[0]) throw failed[0];
+  return results;
+}
+
 /**
  * Owns the Redis-key shapes the trend engine depends on:
  *  - a sorted set of timestamped mention-count samples per topic, used to
@@ -60,11 +91,7 @@ export class TrendStoreService {
   }
 
   async getSamples(topic: string): Promise<TrendSample[]> {
-    const raw = await this.redis.zrange(samplesKey(topic), '0', '-1');
-    return raw.map((entry) => {
-      const [timestamp, mentions] = entry.split(':');
-      return { timestamp: Number(timestamp), mentions: Number(mentions) };
-    });
+    return parseSamples(await this.redis.zrange(samplesKey(topic), '0', '-1'));
   }
 
   /**
@@ -72,14 +99,40 @@ export class TrendStoreService {
    * Returns 0 when there isn't enough history yet.
    */
   async computeVelocity(topic: string): Promise<number> {
-    const samples = await this.getSamples(topic);
-    if (samples.length < 2) return 0;
+    return velocityOf(await this.getSamples(topic));
+  }
 
-    const first = samples[0];
-    const last = samples[samples.length - 1];
-    if (first.mentions <= 0) return 0;
+  /**
+   * Records one sample per topic and returns every topic's velocity, in two
+   * pipelined round trips. A pipeline run touches ~100 topics; issuing them
+   * as ~200 concurrent transactions gets the connection reset by hosted
+   * Redis proxies such as Upstash.
+   */
+  async recordSamplesAndVelocities(
+    samples: { topic: string; mentions: number }[],
+    timestamp: number = Date.now(),
+  ): Promise<Map<string, number>> {
+    const writes = this.redis.pipeline();
+    for (const { topic, mentions } of samples) {
+      const key = samplesKey(topic);
+      writes
+        .zadd(key, timestamp, `${timestamp}:${mentions}`)
+        .expire(key, this.trendTtlSeconds);
+    }
+    throwOnPipelineError(await writes.exec());
 
-    return (last.mentions - first.mentions) / first.mentions;
+    const reads = this.redis.pipeline();
+    for (const { topic } of samples) {
+      reads.zrange(samplesKey(topic), '0', '-1');
+    }
+    const results = throwOnPipelineError(await reads.exec());
+
+    return new Map(
+      samples.map(({ topic }, index) => [
+        topic,
+        velocityOf(parseSamples(results[index][1] as string[])),
+      ]),
+    );
   }
 
   async setScore(topic: string, score: Record<string, unknown>): Promise<void> {

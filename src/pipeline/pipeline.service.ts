@@ -80,18 +80,21 @@ export class PipelineService {
     );
 
     const artistGenres = buildArtistGenreIndex(analyzed);
-    const stories = await Promise.all(
-      clusters.map(async (cluster) => {
-        const sourceCount = new Set(cluster.items.map((item) => item.source))
-          .size;
-        await this.trendStore.recordSample(
-          cluster.id,
-          sourceCount,
-          now.getTime(),
-        );
-        const velocity = await this.trendStore.computeVelocity(cluster.id);
-        return buildStory(cluster, velocity, now, scoringWeights, artistGenres);
-      }),
+    const velocities = await this.trendStore.recordSamplesAndVelocities(
+      clusters.map((cluster) => ({
+        topic: cluster.id,
+        mentions: new Set(cluster.items.map((item) => item.source)).size,
+      })),
+      now.getTime(),
+    );
+    const stories = clusters.map((cluster) =>
+      buildStory(
+        cluster,
+        velocities.get(cluster.id) ?? 0,
+        now,
+        scoringWeights,
+        artistGenres,
+      ),
     );
 
     const snapshot: TopStoriesSnapshot = {

@@ -105,3 +105,73 @@ describe('TrendStoreService', () => {
     expect(await service.getTopStories()).toBeNull();
   });
 });
+
+describe('TrendStoreService.recordSamplesAndVelocities', () => {
+  const config = {
+    get: (key: string) =>
+      ({ 'trend.ttlHours': 24, 'trend.seenItemTtlHours': 48 })[key],
+  } as unknown as ConfigService<AppConfig, true>;
+
+  function pipelineMock(results: [Error | null, unknown][]) {
+    const chain = {
+      zadd: jest.fn().mockReturnThis(),
+      expire: jest.fn().mockReturnThis(),
+      zrange: jest.fn().mockReturnThis(),
+      exec: jest.fn().mockResolvedValue(results),
+    };
+    return chain;
+  }
+
+  it('writes all samples in one pipeline and reads velocities in another', async () => {
+    const writes = pipelineMock([]);
+    const reads = pipelineMock([
+      [null, ['1000:2', '2000:4']],
+      [null, ['2000:3']],
+    ]);
+    const redis = {
+      pipeline: jest
+        .fn()
+        .mockReturnValueOnce(writes)
+        .mockReturnValueOnce(reads),
+    };
+    const service = new TrendStoreService(redis as any, config);
+
+    const velocities = await service.recordSamplesAndVelocities(
+      [
+        { topic: 'slipknot-tour', mentions: 4 },
+        { topic: 'oasis-tour', mentions: 3 },
+      ],
+      2000,
+    );
+
+    expect(redis.pipeline).toHaveBeenCalledTimes(2);
+    expect(writes.zadd).toHaveBeenCalledWith(
+      'music:trend:slipknot-tour:samples',
+      2000,
+      '2000:4',
+    );
+    expect(writes.expire).toHaveBeenCalledWith(
+      'music:trend:oasis-tour:samples',
+      24 * 3600,
+    );
+    expect(velocities).toEqual(
+      new Map([
+        ['slipknot-tour', 1],
+        ['oasis-tour', 0],
+      ]),
+    );
+  });
+
+  it('throws when a pipelined command failed', async () => {
+    const redis = {
+      pipeline: jest
+        .fn()
+        .mockReturnValue(pipelineMock([[new Error('OOM'), null]])),
+    };
+    const service = new TrendStoreService(redis as any, config);
+
+    await expect(
+      service.recordSamplesAndVelocities([{ topic: 't', mentions: 1 }]),
+    ).rejects.toThrow('OOM');
+  });
+});
