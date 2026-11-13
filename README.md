@@ -10,7 +10,7 @@ Redis holds only temporary trend state (topic, source count, velocity,
 score...), and every key expires automatically.
 
 Status: **first milestone (spec section 39) minus the AI summary.** RSS
-collection from 15 outlets, normalization, entity detection, story
+collection from 19 outlets, normalization, entity detection, story
 clustering, trend scoring and ranking all run; the AI editor (spec 20),
 YouTube (Phase 6) and social sources (Phase 7) are not implemented yet.
 See [PROJECT_SPEC.md](PROJECT_SPEC.md) for the full spec.
@@ -113,9 +113,14 @@ GitHub Actions (3×/day) ──npm run refresh──▶ Upstash Redis ◀──r
 ```
 
 - **Pipeline:** `.github/workflows/refresh.yml` runs `npm run refresh` at 09:00,
-  15:00 and 21:00 Argentina time (plus manual runs from the Actions tab).
-  It is the only writer, so the ranking updates at most 3 times a day.
+  15:00 and 21:00 Argentina time, plus manual runs from the Actions tab and
+  from the site's **Actualizar** button. It is the only writer.
   GitHub may start scheduled runs a few minutes late.
+- **Actualizar button:** `POST /api/refresh` (in `frontend/`) starts the
+  workflow through GitHub's `workflow_dispatch` API, then the page polls
+  until the new ranking lands (~1-2 min). Anyone can press it, so a shared
+  cooldown in Redis (`music:refresh-lock`, `REFRESH_COOLDOWN_MINUTES`,
+  default 30) allows at most one visitor-triggered run per window.
 - **Redis:** an Upstash database (free plan). The pipeline only uses plain
   Redis commands; BullMQ is loaded only by the local dev server.
 - **Web:** the Next.js app in `frontend/` serves the UI and a read-only API
@@ -130,6 +135,13 @@ Setup:
    *Actions* tab to fill Redis.
 3. On Vercel: import the repo, set **Root Directory** to `frontend`, and add
    the environment variable `REDIS_URL` (same string).
+4. For the **Actualizar** button: on GitHub, *Settings → Developer settings →
+   Personal access tokens → Fine-grained tokens → Generate new token*, with
+   access to this repository only and the permission *Actions: Read and
+   write*. On Vercel add `GITHUB_DISPATCH_TOKEN` (that token) and
+   `GITHUB_REPO` (`owner/repo`), then redeploy. Without them the button
+   answers "No pudimos pedir la actualización" and the rest of the site
+   keeps working.
 
 Don't point a local `npm run start:dev` at the Upstash URL: the dev server's
 scheduler runs every `NEWS_INTERVAL_MINUTES` and would break the 3-a-day cap.

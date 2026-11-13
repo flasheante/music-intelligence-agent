@@ -1,12 +1,14 @@
 # Runs the news pipeline and writes the ranking to Redis (Upstash) - the
-# only writer in production. Capped at 3 scheduled runs a day on purpose.
+# only writer in production. 3 scheduled runs a day, plus on-demand runs
+# from the site's "Actualizar" button (frontend/app/api/refresh), which a
+# shared Redis cooldown limits to one per REFRESH_COOLDOWN_MINUTES.
 name: Refresh Top 10
 
 on:
   schedule:
     # 09:00, 15:00 and 21:00 Argentina time (UTC-3).
     - cron: '0 0,12,18 * * *'
-  # Manual run from the Actions tab (counts on top of the 3 scheduled ones).
+  # Manual run from the Actions tab or the site's "Actualizar" button.
   workflow_dispatch:
 
 concurrency:

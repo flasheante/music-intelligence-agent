@@ -89,4 +89,88 @@ describe("TopStories", () => {
     expect(await screen.findByText(/no pudimos cargar el ranking/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Reintentar" })).toBeInTheDocument();
   });
+
+  describe("refresh button", () => {
+    /** Routes fetch by URL: POST /api/refresh → refreshResponse, anything else → the ranking. */
+    function mockApi(ranking: unknown, refreshResponse: unknown, refreshStatus: number) {
+      const fetchMock = vi.fn().mockImplementation(async (url: string) =>
+        url.endsWith("/api/refresh")
+          ? { ok: refreshStatus < 400, status: refreshStatus, json: async () => refreshResponse }
+          : { ok: true, status: 200, json: async () => ranking },
+      );
+      vi.stubGlobal("fetch", fetchMock);
+      return fetchMock;
+    }
+
+    const oldRanking = {
+      generatedAt: new Date(Date.now() - 3 * 3_600_000).toISOString(),
+      stories: [story({})],
+    };
+
+    it("starts a pipeline run and waits for the new ranking", async () => {
+      const fetchMock = mockApi(
+        oldRanking,
+        { status: "started", requestedAt: new Date().toISOString(), retryAfterSeconds: 1800 },
+        202,
+      );
+
+      render(<TopStories />);
+      await screen.findByText("Headline");
+      fireEvent.click(screen.getByRole("button", { name: "Actualizar" }));
+
+      expect(await screen.findByText(/buscando novedades/i)).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Actualizando…" })).toBeDisabled();
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/refresh",
+        expect.objectContaining({ method: "POST" }),
+      );
+    });
+
+    it("explains the cooldown when the ranking is already fresh", async () => {
+      mockApi(
+        { generatedAt: new Date().toISOString(), stories: [story({})] },
+        {
+          status: "cooldown",
+          requestedAt: new Date(Date.now() - 5 * 60_000).toISOString(),
+          retryAfterSeconds: 25 * 60,
+        },
+        429,
+      );
+
+      render(<TopStories />);
+      await screen.findByText("Headline");
+      fireEvent.click(screen.getByRole("button", { name: "Actualizar" }));
+
+      expect(await screen.findByText(/volver a pedirlas en 25 min/i)).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Actualizar" })).toBeEnabled();
+    });
+
+    it("waits for a run someone else started that hasn't finished yet", async () => {
+      mockApi(
+        oldRanking,
+        {
+          status: "cooldown",
+          requestedAt: new Date(Date.now() - 30_000).toISOString(),
+          retryAfterSeconds: 29 * 60,
+        },
+        429,
+      );
+
+      render(<TopStories />);
+      await screen.findByText("Headline");
+      fireEvent.click(screen.getByRole("button", { name: "Actualizar" }));
+
+      expect(await screen.findByText(/buscando novedades/i)).toBeInTheDocument();
+    });
+
+    it("says when the refresh could not be requested", async () => {
+      mockApi(oldRanking, { message: "Refresh is not configured" }, 503);
+
+      render(<TopStories />);
+      await screen.findByText("Headline");
+      fireEvent.click(screen.getByRole("button", { name: "Actualizar" }));
+
+      expect(await screen.findByText(/no pudimos pedir la actualización/i)).toBeInTheDocument();
+    });
+  });
 });

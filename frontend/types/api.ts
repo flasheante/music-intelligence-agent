@@ -40,3 +40,12 @@ export type TopStoriesSnapshot = {
   generatedAt: string | null;
   stories: TopStory[];
 };
+
+/** POST /api/refresh: 202 when a pipeline run was started, 429 while cooling down. */
+export type RefreshResponse = {
+  status: "started" | "cooldown";
+  /** When the latest refresh was requested (ISO), or null if unknown. */
+  requestedAt: string | null;
+  /** Seconds until another refresh can be requested. */
+  retryAfterSeconds: number;
+};
