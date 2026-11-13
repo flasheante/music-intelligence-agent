@@ -48,7 +48,7 @@ export const NEWS_SOURCES: NewsSourceConfig[] = [
     region: Region.ARGENTINA,
     authority: 0.85,
     enabled: false,
-    note: 'Feed responds but returns 0 items (checked 2026-09-28).',
+    note: 'Feed responds but returns 0 items (re-checked 2026-11-13).',
   },
 
   // United States
@@ -149,32 +149,33 @@ export const NEWS_SOURCES: NewsSourceConfig[] = [
     authority: 0.8,
     genres: [Genre.METAL, Genre.PUNK, Genre.ROCK],
     enabled: false,
-    note: 'Feed URL returns 404 (checked 2026-09-28); needs the current URL.',
+    note: '/feed returns 404 to the reader and 403 (Cloudflare) to browsers; the Bauer aggregator returns unparseable XML (checked 2026-11-13).',
   },
   {
-    name: 'Metal Hammer',
-    feedUrl: 'https://www.loudersound.com/feeds/metal-hammer/news',
+    // Site-wide feed (Metal Hammer, Classic Rock, Prog). The old
+    // /feeds/metal-hammer/news feed is stale (latest item weeks old).
+    name: 'Louder',
+    feedUrl: 'https://www.loudersound.com/feeds.xml',
     region: Region.EUROPE,
     authority: 0.8,
-    genres: [Genre.METAL],
-    enabled: false,
-    note: 'Feed only returns items from 2023 (checked 2026-09-28).',
+    genres: [Genre.METAL, Genre.ROCK],
+    enabled: true,
   },
   {
     name: 'The Guardian Music',
     feedUrl: 'https://www.theguardian.com/music/rss',
     region: Region.EUROPE,
     authority: 0.9,
-    enabled: false,
-    note: 'rss-parser fails on this feed ("Cannot convert object to primitive value").',
+    enabled: true,
   },
   {
     name: 'MOJO',
-    feedUrl: 'https://www.mojo4music.com/feed/',
+    // The site's own <link rel="alternate"> feed (Bauer's aggregator).
+    feedUrl:
+      'https://rss.onebauer.media/api/feed-aggregator?hostname=https://www.mojo4music.com',
     region: Region.EUROPE,
     authority: 0.75,
-    enabled: false,
-    note: 'Feed URL returns 404 (checked 2026-09-28).',
+    enabled: true,
   },
   {
     name: 'Clash',
@@ -182,15 +183,14 @@ export const NEWS_SOURCES: NewsSourceConfig[] = [
     region: Region.EUROPE,
     authority: 0.7,
     enabled: false,
-    note: 'Returns 403 to server-side requests (checked 2026-09-28).',
+    note: 'Returns 403 to server-side requests (re-checked 2026-11-13).',
   },
   {
     name: 'DIY',
     feedUrl: 'https://diymag.com/feed',
     region: Region.EUROPE,
     authority: 0.7,
-    enabled: false,
-    note: 'rss-parser fails on this feed ("Cannot convert object to primitive value").',
+    enabled: true,
   },
 ];
 
